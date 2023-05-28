@@ -19,7 +19,7 @@ func main() {
 
 	apiClient := IoT.NewClient(
 		autorisation.GetKeyFromFile("authorized_key.json"),
-		"arehtnb60pd5dgjvfrel",
+		"areurk7094bin6he75pk",
 	)
 
 	deviceRepo := api.NewRepository(apiClient)
