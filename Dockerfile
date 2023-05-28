@@ -15,7 +15,6 @@ WORKDIR /
 COPY --from=build /scratch.passwd /etc/passwd
 COPY --from=build /scratch.group /etc/group
 COPY --from=build /app /app
-COPY --from=build /authorized_key.json /authorized_key.json
 
 EXPOSE 8000
 USER nobody:nobody
