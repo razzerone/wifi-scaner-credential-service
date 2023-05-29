@@ -2,7 +2,6 @@ package autorisation
 
 import (
 	"encoding/json"
-	"log"
 	"os"
 )
 
@@ -12,20 +11,18 @@ type Key struct {
 	PrivateKey string `json:"private_key"`
 }
 
-func GetKeyFromFile(path string) *Key {
+func GetKeyFromFile(path string) (*Key, error) {
 	content, err := os.ReadFile(path)
 	if err != nil {
-		log.Panic("unable read key file")
-		return nil
+		return nil, err
 	}
 
 	var key Key
 
 	err = json.Unmarshal(content, &key)
 	if err != nil {
-		log.Panic("unable parse key file")
-		return nil
+		return nil, err
 	}
 
-	return &key
+	return &key, nil
 }
