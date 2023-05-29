@@ -102,3 +102,9 @@ go.work
 test-api.http
 
 authorized_key.json
+/logs/*
+
+bin
+*.crt
+*.pem
+*.key
