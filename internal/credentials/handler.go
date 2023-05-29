@@ -5,12 +5,12 @@ import (
 	"encoding/json"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
-	"log"
 	"net/http"
 	"regexp"
 	"wifi-scaner-credentials/internal/devices"
 	"wifi-scaner-credentials/internal/handlers"
 	"wifi-scaner-credentials/internal/passwords"
+	"wifi-scaner-credentials/pkg/logging"
 )
 
 const (
@@ -22,10 +22,11 @@ var _ handlers.Handler = &handler{}
 type handler struct {
 	DeviceRepo   devices.Repository
 	PasswordRepo passwords.Repository
+	logger       *logging.Logger
 }
 
-func NewHandler(repository devices.Repository, repository2 passwords.Repository) handlers.Handler {
-	return &handler{repository, repository2}
+func NewHandler(repository devices.Repository, repository2 passwords.Repository, logger *logging.Logger) handlers.Handler {
+	return &handler{repository, repository2, logger}
 }
 
 func (h *handler) Register(router *httprouter.Router) {
@@ -35,38 +36,40 @@ func (h *handler) Register(router *httprouter.Router) {
 func (h *handler) getCredentials(w http.ResponseWriter, r *http.Request, params httprouter.Params) {
 	mac := params.ByName("mac")
 
+	h.logger.Infof("request from: %s", mac)
+
 	matched, err := regexp.MatchString(`^([0-9A-F]{2}-){5}([0-9A-F]{2})$`, mac)
 	if err != nil || !matched {
-		log.Printf("")
+		h.logger.Error("invalid mac address")
 		http.Error(w, "invalid mac address", http.StatusBadRequest)
 		return
 	}
 
 	device, err := h.DeviceRepo.FindByMAC(context.Background(), mac)
 	if err != nil {
-		log.Printf("")
+		h.logger.Error("api error")
 		http.Error(w, fmt.Sprintf("api error: %e", err), http.StatusInternalServerError)
 		return
 	}
 
 	if device == nil {
-		log.Printf("device with mac %s not found\n", mac)
+		h.logger.Info("device with mac %s not found\n", mac)
 
-		log.Println("creating device")
+		h.logger.Info("creating device")
 
 		deviceID, err := h.DeviceRepo.Create(context.Background(), mac)
 		if err != nil {
-			log.Printf("")
+			h.logger.Error("api error")
 			http.Error(w, fmt.Sprintf("api error: %e", err), http.StatusInternalServerError)
 			return
 		}
 
 		device = &devices.Device{ID: deviceID, MAC: mac}
 
-		log.Printf("device created, id: %s", deviceID)
+		h.logger.Infof("device created, id: %s", deviceID)
 	}
 
-	// generate pass
+	// TODO: generate pass
 	password := "QQQQQQ1111notimplemented"
 
 	pass := &passwords.Password{
@@ -76,12 +79,12 @@ func (h *handler) getCredentials(w http.ResponseWriter, r *http.Request, params 
 
 	err = h.PasswordRepo.Create(context.Background(), pass)
 	if err != nil {
-		log.Printf("")
+		h.logger.Error("api error")
 		http.Error(w, fmt.Sprintf("api error: %e", err), http.StatusInternalServerError)
 		return
 	}
 
-	log.Println("password created")
+	h.logger.Info("password created")
 
 	cred := &Credentials{
 		DeviceID: device.ID,
@@ -90,14 +93,14 @@ func (h *handler) getCredentials(w http.ResponseWriter, r *http.Request, params 
 
 	marshal, err := json.Marshal(cred)
 	if err != nil {
-		log.Printf("")
+		h.logger.Error("json error")
 		http.Error(w, fmt.Sprintf("internal json error: %e", err), http.StatusInternalServerError)
 		return
 	}
 
 	_, err = w.Write(marshal)
 	if err != nil {
-		log.Printf("")
+		h.logger.Error("write error")
 		http.Error(w, fmt.Sprintf("internal error: %e", err), http.StatusInternalServerError)
 		return
 	}
